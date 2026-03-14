@@ -17,12 +17,12 @@ end tt_um_prime_net;
 
 architecture rtl of tt_um_prime_net is
 
-    -- 14 active hidden nodes:
-    -- original nodes: 0,1,2,3,4,5,6,8,9,10,12,13,14,15
+    -- Active hidden nodes kept from the original network:
+    -- old nodes: 0,1,2,3,4,5,6,8,9,10,12,13,14,15
+
     type weight_row_t is array (0 to 7) of integer range -64 to 55;
     type weight_matrix_t is array (0 to 13) of weight_row_t;
     type bias_array_t is array (0 to 13) of integer range -23 to 29;
-    type out_weight_array_t is array (0 to 13) of integer range -66 to 50;
     type hidden_array_t is array (0 to 13) of unsigned(7 downto 0);
 
     constant W0 : weight_matrix_t := (
@@ -46,19 +46,113 @@ architecture rtl of tt_um_prime_net is
         -11, -4, -23, -21, 9, 29, 20, -1, 12, -7, 13, 19, 14, -3
     );
 
-    constant W1 : out_weight_array_t := (
-        -56, -14, -37, -66, -30, 41, -56, -10, -46, 50, -24, -39, 15, -54
-    );
-
-    -- Original code did: sum_out := B1 * 16, with B1 = -1
+    -- Output bias from original code:
+    -- sum_out := B1 * 16 with B1 = -1
     constant OUT_BIAS : signed(15 downto 0) := to_signed(-16, 16);
 
-    -- Convert hidden activation * constant weight into signed(15 downto 0)
-    function mult_const(x : unsigned(7 downto 0); k : integer) return signed is
-        variable xi : integer;
+    -- Convert unsigned hidden activation to signed accumulator width
+    function sx(x : unsigned(7 downto 0)) return signed is
     begin
-        xi := to_integer(x);
-        return to_signed(xi * k, 16);
+        return resize(signed('0' & x), 16);
+    end function;
+
+    -- Hand-optimized constant multipliers
+    function mul_w0(x : unsigned(7 downto 0)) return signed is  -- -56
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 6) + shift_left(a, 3);
+    end function;
+
+    function mul_w1(x : unsigned(7 downto 0)) return signed is  -- -14
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 4) + shift_left(a, 1);
+    end function;
+
+    function mul_w2(x : unsigned(7 downto 0)) return signed is  -- -37
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 5) - shift_left(a, 2) - a;
+    end function;
+
+    function mul_w3(x : unsigned(7 downto 0)) return signed is  -- -66
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 6) - shift_left(a, 1);
+    end function;
+
+    function mul_w4(x : unsigned(7 downto 0)) return signed is  -- -30
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 5) + shift_left(a, 1);
+    end function;
+
+    function mul_w5(x : unsigned(7 downto 0)) return signed is  -- 41
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return shift_left(a, 5) + shift_left(a, 3) + a;
+    end function;
+
+    function mul_w6(x : unsigned(7 downto 0)) return signed is  -- -56
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 6) + shift_left(a, 3);
+    end function;
+
+    function mul_w7(x : unsigned(7 downto 0)) return signed is  -- -10
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 3) - shift_left(a, 1);
+    end function;
+
+    function mul_w8(x : unsigned(7 downto 0)) return signed is  -- -46
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 5) - shift_left(a, 3) - shift_left(a, 2) - shift_left(a, 1);
+    end function;
+
+    function mul_w9(x : unsigned(7 downto 0)) return signed is  -- 50
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return shift_left(a, 5) + shift_left(a, 4) + shift_left(a, 1);
+    end function;
+
+    function mul_w10(x : unsigned(7 downto 0)) return signed is  -- -24
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 4) - shift_left(a, 3);
+    end function;
+
+    function mul_w11(x : unsigned(7 downto 0)) return signed is  -- -39
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 5) - shift_left(a, 2) - shift_left(a, 1) - a;
+    end function;
+
+    function mul_w12(x : unsigned(7 downto 0)) return signed is  -- 15
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return shift_left(a, 3) + shift_left(a, 2) + shift_left(a, 1) + a;
+    end function;
+
+    function mul_w13(x : unsigned(7 downto 0)) return signed is  -- -54
+        variable a : signed(15 downto 0);
+    begin
+        a := sx(x);
+        return -shift_left(a, 6) + shift_left(a, 3) + shift_left(a, 1);
     end function;
 
 begin
@@ -78,8 +172,8 @@ begin
                 end if;
             end loop;
 
-            -- old node 5 and old node 14 are always >= 0
-            -- here those correspond to new j=5 and new j=12
+            -- old node 5 and old node 14 are always non-negative
+            -- in this reduced index set: j = 5 and j = 12
             if (j = 5) or (j = 12) then
                 hidden(j) := unsigned(sum_hidden(7 downto 0));
             else
@@ -91,12 +185,23 @@ begin
             end if;
         end loop;
 
-        -- Output layer
+        -- Output layer with shift/add constant multipliers
         sum_out := OUT_BIAS;
 
-        for j in 0 to 13 loop
-            sum_out := sum_out + mult_const(hidden(j), W1(j));
-        end loop;
+        sum_out := sum_out + mul_w0(hidden(0));
+        sum_out := sum_out + mul_w1(hidden(1));
+        sum_out := sum_out + mul_w2(hidden(2));
+        sum_out := sum_out + mul_w3(hidden(3));
+        sum_out := sum_out + mul_w4(hidden(4));
+        sum_out := sum_out + mul_w5(hidden(5));
+        sum_out := sum_out + mul_w6(hidden(6));
+        sum_out := sum_out + mul_w7(hidden(7));
+        sum_out := sum_out + mul_w8(hidden(8));
+        sum_out := sum_out + mul_w9(hidden(9));
+        sum_out := sum_out + mul_w10(hidden(10));
+        sum_out := sum_out + mul_w11(hidden(11));
+        sum_out := sum_out + mul_w12(hidden(12));
+        sum_out := sum_out + mul_w13(hidden(13));
 
         uo_out <= (others => '0');
         if sum_out(15) = '0' then
