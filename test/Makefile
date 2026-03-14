@@ -2,7 +2,7 @@
 # See https://docs.cocotb.org/en/stable/quickstart.html for more info
 
 # List your source files here:
-SOURCE_FILES = project.vhdl
+SOURCE_FILES = Aladin.vhdl
 
 # Common
 WAVES ?= 1
@@ -15,7 +15,7 @@ $(warning ************ Gate level simulation selected but currently not set up o
 endif
 
 # Toplevel name of your VHDL project
-COCOTB_TOPLEVEL = tt_um_example
+COCOTB_TOPLEVEL = prime_net
 
 TOPLEVEL_LANG = vhdl
 SIM = ghdl

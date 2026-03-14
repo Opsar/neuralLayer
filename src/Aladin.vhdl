@@ -27,7 +27,6 @@ architecture rtl of prime_net is
 
     -- =========================================================
     -- Layer 0 weights: 16 x 8
-    -- Quantized integer values from your CSV
     -- =========================================================
     constant W0 : hidden_weight_matrix_t := (
         0  => (  8,  30,   8,  17,  16,  25, -33, -52 ),
@@ -64,16 +63,25 @@ architecture rtl of prime_net is
         -10, -46, 50, 0, -24, -39, 15, -54
     );
 
+    -- =========================================================
     -- Output bias
+    -- =========================================================
     constant B1 : integer := -1;
 
 begin
 
-    process(all)
-        variable hidden     : hidden_bias_t;  -- stores ReLU outputs in Q4 integer form
+    -- Unused bidirectional IO
+    uio_out <= (others => '0');
+    uio_oe  <= (others => '0');
+
+    process(ui_in)
+        variable hidden     : hidden_bias_t;
         variable sum_hidden : integer;
-        variable sum_out    : integer;        -- Q8 integer form
+        variable sum_out    : integer;  -- Q8
+        variable result_bit : std_logic;
     begin
+        -- Default output
+        result_bit := '0';
 
         -- =====================================================
         -- Hidden layer
@@ -82,10 +90,9 @@ begin
             sum_hidden := B0(j);
 
             for i in 0 to 7 loop
-                -- Choose your bit ordering here.
-                -- This version assumes x_in(7) is input 0 from the CSV,
-                -- x_in(6) is input 1, ..., x_in(0) is input 7.
-                if x_in(7 - i) = '1' then
+                -- Python feature 0 = MSB, feature 7 = LSB
+                -- so ui_in(7) maps to W0(j)(0), ..., ui_in(0) maps to W0(j)(7)
+                if ui_in(7 - i) = '1' then
                     sum_hidden := sum_hidden + W0(j)(i);
                 end if;
             end loop;
@@ -100,8 +107,6 @@ begin
 
         -- =====================================================
         -- Output layer
-        -- hidden(j) is Q4, W1(j) is Q4, so product is Q8
-        -- B1 is Q4, so shift left by 4 to align to Q8
         -- =====================================================
         sum_out := B1 * 16;
 
@@ -109,12 +114,15 @@ begin
             sum_out := sum_out + hidden(j) * W1(j);
         end loop;
 
-        -- logit >= 0  => class 1
         if sum_out >= 0 then
-            y_out <= '1';
+            result_bit := '1';
         else
-            y_out <= '0';
+            result_bit := '0';
         end if;
+
+        -- Put result on bit 0, clear others
+        uo_out <= (others => '0');
+        uo_out(0) <= result_bit;
     end process;
 
 end architecture;
