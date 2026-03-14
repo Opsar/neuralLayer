@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity prime_net is
+entity tt_um_prime_net is
     port (
         ui_in   : in  std_logic_vector(7 downto 0);
         uo_out  : out std_logic_vector(7 downto 0);
@@ -13,9 +13,9 @@ entity prime_net is
         clk     : in  std_logic;
         rst_n   : in  std_logic
     );
-end prime_net;
+end tt_um_prime_net;
 
-architecture rtl of prime_net is
+architecture rtl of tt_um_prime_net is
 
     -- =========================================================
     -- Types
