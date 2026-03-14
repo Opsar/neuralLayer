@@ -16,25 +16,32 @@ async def test_project(dut):
 
     # Reset
     dut._log.info("Reset")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
+    dut.ena.value = 0x1
+    dut.ui_in.value = 0x0
+    dut.uio_in.value = 0x0
+    dut.rst_n.value = 0x0
     await ClockCycles(dut.clk, 10)
-    dut.rst_n.value = 1
-
+    dut.rst_n.value = 0x1
     dut._log.info("Test project behavior")
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+    # Test the behavior of the project here
+    for i in range(0xFF):
+        dut._log.info(f"Testing input value: 0x{i:02X}")
+        dut.ui_in.value = i
+        await ClockCycles(dut.clk, 5)
+        dut._log.info(f"Output value: 0x{dut.uo_out.value:02X}")
+        assert dut.uo_out.value == is_prime(i), f"Expected output 0x{i:02X}, got 0x{dut.uo_out.value:02X}"
+        
+def is_prime(n):
+    if n <= 1:
+        return 0
+    for j in range(2, int(n**0.5) + 1):
+        if n % j == 0:
+            return 0
+    return 1
 
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
 
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+# run the test
+if __name__ == "__main__":
+    import cocotb
+    cocotb.start
