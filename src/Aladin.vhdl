@@ -70,10 +70,6 @@ architecture rtl of tt_um_prime_net is
 
 begin
 
-    -- Unused bidirectional IO
-    uio_out <= (others => '0');
-    uio_oe  <= (others => '0');
-
     process(ui_in)
         variable hidden     : hidden_bias_t;
         variable sum_hidden : integer;
