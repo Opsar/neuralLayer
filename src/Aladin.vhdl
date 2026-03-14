@@ -213,5 +213,4 @@ begin
 
     uio_out <= (others => '0');
     uio_oe  <= (others => '0');
-
 end rtl;
