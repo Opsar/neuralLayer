@@ -18,12 +18,24 @@ end tt_um_prime_net;
 architecture rtl of tt_um_prime_net is
 
     -- =========================================================
+    -- Constrained integer subtypes
+    -- =========================================================
+    subtype w0_t         is integer range -64 to 55;
+    subtype b0_t         is integer range -23 to 29;
+    subtype w1_t         is integer range -66 to 50;
+
+    subtype hidden_sum_t is integer range -127 to 164;
+    subtype hidden_act_t is integer range 0 to 164;
+    subtype output_sum_t is integer range -36932 to 15213;
+
+    -- =========================================================
     -- Types
     -- =========================================================
-    type hidden_weight_row_t is array (0 to 7) of integer;
+    type hidden_weight_row_t    is array (0 to 7)  of w0_t;
     type hidden_weight_matrix_t is array (0 to 15) of hidden_weight_row_t;
-    type hidden_bias_t is array (0 to 15) of integer;
-    type output_weight_t is array (0 to 15) of integer;
+    type hidden_bias_t          is array (0 to 15) of b0_t;
+    type hidden_act_array_t     is array (0 to 15) of hidden_act_t;
+    type output_weight_t        is array (0 to 15) of w1_t;
 
     -- =========================================================
     -- Layer 0 weights: 16 x 8
@@ -66,59 +78,47 @@ architecture rtl of tt_um_prime_net is
     -- =========================================================
     -- Output bias
     -- =========================================================
-    constant B1 : integer := -1;
+    constant B1 : integer range -1 to -1 := -1;
 
-begin
-
-    process(ui_in)
-        variable hidden     : hidden_bias_t;
-        variable sum_hidden : integer;
-        variable sum_out    : integer;  -- Q8
-        variable result_bit : std_logic;
-    begin
-        -- Default output
-        result_bit := '0';
-
-        -- =====================================================
-        -- Hidden layer
-        -- =====================================================
-        for j in 0 to 15 loop
-            sum_hidden := B0(j);
-
-            for i in 0 to 7 loop
-                -- Python feature 0 = MSB, feature 7 = LSB
-                -- so ui_in(7) maps to W0(j)(0), ..., ui_in(0) maps to W0(j)(7)
-                if ui_in(7 - i) = '1' then
-                    sum_hidden := sum_hidden + W0(j)(i);
+    begin    
+        process(ui_in)
+            variable hidden     : hidden_act_array_t;
+            variable sum_hidden : hidden_sum_t;
+            variable sum_out    : output_sum_t;
+            variable result_bit : std_logic;
+        begin
+            result_bit := '0';
+    
+            for j in 0 to 15 loop
+                sum_hidden := B0(j);
+    
+                for i in 0 to 7 loop
+                    if ui_in(7 - i) = '1' then
+                        sum_hidden := sum_hidden + W0(j)(i);
+                    end if;
+                end loop;
+    
+                if sum_hidden < 0 then
+                    hidden(j) := 0;
+                else
+                    hidden(j) := sum_hidden;
                 end if;
             end loop;
-
-            -- ReLU
-            if sum_hidden < 0 then
-                hidden(j) := 0;
+    
+            sum_out := B1 * 16;
+    
+            for j in 0 to 15 loop
+                sum_out := sum_out + hidden(j) * W1(j);
+            end loop;
+    
+            if sum_out >= 0 then
+                result_bit := '1';
             else
-                hidden(j) := sum_hidden;
+                result_bit := '0';
             end if;
-        end loop;
-
-        -- =====================================================
-        -- Output layer
-        -- =====================================================
-        sum_out := B1 * 16;
-
-        for j in 0 to 15 loop
-            sum_out := sum_out + hidden(j) * W1(j);
-        end loop;
-
-        if sum_out >= 0 then
-            result_bit := '1';
-        else
-            result_bit := '0';
-        end if;
-
-        -- Put result on bit 0, clear others
-        uo_out <= (others => '0');
-        uo_out(0) <= result_bit;
-    end process;
-
-end architecture;
+    
+            uo_out <= (others => '0');
+            uo_out(0) <= result_bit;
+        end process;
+    
+    end architecture;
